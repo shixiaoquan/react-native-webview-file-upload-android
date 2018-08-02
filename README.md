@@ -1,6 +1,7 @@
 # react-native-webview-file-upload-android
 ReactNative's WebView on Android does not support file input. This library
-adds in an `<AndroidWebView>` that does support file input.
+adds in an `<AndroidWebView>` that does support file input, as well adding 
+support for a number of other missing pieces, listed below.
 
 *PLEASE READ THE LIMITATIONS SECTION FIRST*
 
@@ -11,57 +12,47 @@ undocumented APIs prior? Very spotty APIs anyway, and not built-in to WebView)
 
 <!-- MarkdownTOC -->
 
+- [Things this library adds:](#things-this-library-adds)
 - [React Native Version Compatibility](#react-native-version-compatibility)
 - [Limitations](#limitations)
 - [Further background reading](#further-background-reading)
 - [Requirements](#requirements)
 - [Installation](#installation)
-  - [Manual Linking](#manual-linking)
-  - [Automatic Linking](#automatic-linking)
+    - [Manual Linking](#manual-linking)
+    - [Automatic Linking](#automatic-linking)
 - [Usage](#usage)
 - [Contributing](#contributing)
 
 <!-- /MarkdownTOC -->
 
+## Things this library adds:
+ - File input for any type of file
+ - Support for downloading files using the Android DownloadManager
+
+Note that this project scope has slightly expanded beyond its original scope
+(originally it only added file upload), and it may not retain compatibility 
+with all versions of React Native - see the section below for compatibility 
+notes.
+
 ## React Native Version Compatibility
 
-The version of this available in npm has been tested on RN 0.40.0, but breaks on
-RN 0.44.0. This repo is an awkward place where its scope has slightly expanded
-(adding in the ability to DOWNLOAD files, as well as upload), and being
-difficult, if not impossible, to maintain compatibility with all versions of
-React Native.
+Version 1.0.0 of this has been tested on React Native 0.55.0.
 
-At present, if you want support for anything beyond 0.44.0, alter your
-package.json for this to point at the commit #4f8c1a775750788dc2464dea8dd189b7a41ea17b.
-So for example:
-```
-"react-native-webview-file-upload-android": "github:oblongmana/react-native-webview-file-upload-android#4f8c1a775750788dc2464dea8dd189b7a41ea17b"
-```
+Previous known stable compatibilities include:
+ - `0.4.2` of this library is compatible with React 
+    Native 0.40.0
+ - Commit: "github:oblongmana/react-native-webview-file-upload-android#4f8c1a775750788dc2464dea8dd189b7a41ea17b"
+    is compatible with React Native 0.44.0
 
-In future, may update the npm published version to include these changes, so
-we're supporting the latest RN at all times
+To use a specific commit of this repo, add the following to your `package.json`, 
+where `COMMIT_SHA` is the SHA of the commit you wish to use:
+```
+"react-native-webview-file-upload-android": "github:oblongmana/react-native-webview-file-upload-android#[COMMIT_SHA]"
+```
 
 ## Limitations
 - This is untested on most Android platforms at time of writing. This was tested
 in an AVD with following config: Nexus 5X API 25 x86, Android 7.1.1.
-
-- At present this library handles only uploading images picked from the gallery.
-
-  This could likely be modified to support other file types, or to have generic
-  picking from file system instead, but at present I don't have time to make
-  these modifications - this rework of the original repo
-  (https://github.com/dongyaQin/react-native-webview-file-upload) is for a
-  specific project requiring only image uploads.
-
-  Modifications to support uploading other types would need to be made in
-  AndroidWebViewManager.java, specifically - you would like want to work out how
-  to check the type on the `<input>` element, and pop appropriate intents
-  against the `createChooser` call, depending on the file type.
-
-  Such work would likely lean more heavily on the code posted in this comment
-  https://github.com/facebook/react-native/issues/5219#issuecomment-209926304.
-  You may also want to refer to other threads in the background reading section
-  below.
 
 - This only works with Android - specifically, it DOES NOT defer to react-native
 built-in WebView for iOS. If supporting both platforms, you will need to include
@@ -80,8 +71,10 @@ library.
 
 ## Requirements
 This has been tested with (and has a peerDependency in package.json on
-`react-native` `^0.40.0`). It _might_ work with earlier versions. If it does,
-please feel free to open a PR amending the peerDependencies in package.json.
+`react-native` `^0.55.0`). Please see the compatibility section above for 
+further information on compatibility with earlier versions. This version of 
+the library _might_ work with earlier versions of React Native. If it does,
+please open a PR amending the peerDependencies in package.json.
 
 ## Installation
 
@@ -178,9 +171,11 @@ class MySuperSpecialWebView extends Component {
 ```
 
 ## Contributing
-As noted enthusiastically above, contributions are very welcome, especially any
-contributions which add support for files other than images selected from the
-gallery
+As noted enthusiastically above, contributions are very welcome. Apologies if I 
+don't get round to reviewing any PRs in a timely manner. I'd encourage you to
+put instructions for utilising your own fork in any PRs you open against this,
+so Googlers coming across whatever you add can use your contribution with minimal
+friction, if I haven't merged it.
 
 This project includes an `.eslintrc.json` file, and any contributions should
 comply with this. My personal dev environment was Sublime Text 3, using
