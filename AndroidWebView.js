@@ -1,16 +1,13 @@
 /**
  * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  *
- * @providesModule AndroidWebView
+ * @providesModule WebView
  */
 import React, {
   Component,
-  PropTypes,
 } from 'react';
 import ReactNative, {
   EdgeInsetsPropType,
@@ -18,11 +15,13 @@ import ReactNative, {
   StyleSheet,
   UIManager,
   View,
+  ViewPropTypes,
   requireNativeComponent,
 } from 'react-native';
 import warning from 'warning';
 import keyMirror from 'keymirror';
 import resolveAssetSource from 'react-native/Libraries/Image/resolveAssetSource';
+import PropTypes from 'prop-types';
 
 /**
  * Adds a function for warning Users of deprecated prop use (when something was
@@ -93,8 +92,16 @@ const defaultRenderLoading = () => (
  * Renders a native AndroidWebView that allows file upload.
  */
 class AndroidWebView extends Component {
+  static get extraNativeComponentConfig() {
+    return {
+      nativeOnly: {
+        messagingEnabled: PropTypes.bool,
+      },
+    };
+  }
+
   static propTypes = {
-    ...View.propTypes,
+    ...ViewPropTypes,
     renderError: PropTypes.func,
     renderLoading: PropTypes.func,
     onLoad: PropTypes.func,
@@ -107,7 +114,7 @@ class AndroidWebView extends Component {
     onMessage: PropTypes.func,
     onContentSizeChange: PropTypes.func,
     startInLoadingState: PropTypes.bool, // force WebView to show loadingView on first load
-    style: View.propTypes.style,
+    style: ViewPropTypes.style,
 
     html: deprecatedPropType(
       PropTypes.string,
@@ -169,6 +176,13 @@ class AndroidWebView extends Component {
     javaScriptEnabled: PropTypes.bool,
 
     /**
+     * Used on Android Lollipop and above only, third party cookies are enabled
+     * by default for WebView on Android Kitkat and below and on iOS
+     * @platform android
+     */
+    thirdPartyCookiesEnabled: PropTypes.bool,
+
+    /**
      * Used on Android only, controls whether DOM Storage is enabled or not
      * @platform android
      */
@@ -228,7 +242,7 @@ class AndroidWebView extends Component {
     mixedContentMode: PropTypes.oneOf([
       'never',
       'always',
-      'compatibility'
+      'compatibility',
     ]),
 
     /**
@@ -238,6 +252,35 @@ class AndroidWebView extends Component {
     saveFormDataDisabled: PropTypes.bool,
 
     /**
+     * Override the native component used to render the WebView. Enables a custom native
+     * WebView which uses the same JavaScript as the original WebView.
+     */
+    nativeConfig: PropTypes.shape({
+      /*
+       * The native component used to render the WebView.
+       */
+      component: PropTypes.any,
+      /*
+       * Set props directly on the native component WebView. Enables custom props which the
+       * original WebView doesn't pass through.
+       */
+      props: PropTypes.object,
+      /*
+       * Set the ViewManager to use for communcation with the native side.
+       * @platform ios
+       */
+      viewManager: PropTypes.object,
+    }),
+    /*
+     * Used on Android only, controls whether the given list of URL prefixes should
+     * make {@link com.facebook.react.views.webview.ReactWebViewClient} to launch a
+     * default activity intent for those URL instead of loading it within the webview.
+     * Use this to list URLs that WebView cannot handle, e.g. a PDF url.
+     * @platform android
+     */
+    urlPrefixesForDefaultIntent: PropTypes.arrayOf(PropTypes.string),
+
+    /**
      * Make upload file available
      */
     uploadEnabledAndroid: PropTypes.bool,
@@ -245,8 +288,9 @@ class AndroidWebView extends Component {
 
   static defaultProps = {
     javaScriptEnabled: true,
+    thirdPartyCookiesEnabled: true,
     scalesPageToFit: true,
-    saveFormDataDisabled: false
+    saveFormDataDisabled: false,
   };
 
   state = {
@@ -260,6 +304,151 @@ class AndroidWebView extends Component {
       this.setState({ viewState: WebViewState.LOADING });
     }
   }
+
+  render() {
+    let otherView = null;
+
+    if (this.state.viewState === WebViewState.LOADING) {
+      otherView = (this.props.renderLoading || defaultRenderLoading)();
+    } else if (this.state.viewState === WebViewState.ERROR) {
+      const errorEvent = this.state.lastErrorEvent;
+      otherView = this.props.renderError && this.props.renderError(
+        errorEvent.domain,
+        errorEvent.code,
+        errorEvent.description);
+    } else if (this.state.viewState !== WebViewState.IDLE) {
+      console.error('RCTWebView invalid state encountered: ' + this.state.loading);
+    }
+
+    const webViewStyles = [styles.container, this.props.style];
+    if (this.state.viewState === WebViewState.LOADING ||
+      this.state.viewState === WebViewState.ERROR) {
+      // if we're in either LOADING or ERROR states, don't show the webView
+      webViewStyles.push(styles.hidden);
+    }
+
+    const source = this.props.source || {};
+    if (this.props.html) {
+      source.html = this.props.html;
+    } else if (this.props.url) {
+      source.uri = this.props.url;
+    }
+
+    if (source.method === 'POST' && source.headers) {
+      console.warn('WebView: `source.headers` is not supported when using POST.');
+    } else if (source.method === 'GET' && source.body) {
+      console.warn('WebView: `source.body` is not supported when using GET.');
+    }
+
+    const nativeConfig = this.props.nativeConfig || {};
+
+    let NativeWebView = nativeConfig.component || WebViewForAndroid;
+
+    const webView = (
+      <WebViewForAndroid
+        ref={(c) => { this[RCT_WEBVIEW_REF] = c; }}
+        key="androidwebViewKey"
+        style={webViewStyles}
+        source={resolveAssetSource(source)}
+        scalesPageToFit={this.props.scalesPageToFit}
+        injectedJavaScript={this.props.injectedJavaScript}
+        userAgent={this.props.userAgent}
+        javaScriptEnabled={this.props.javaScriptEnabled}
+        thirdPartyCookiesEnabled={this.props.thirdPartyCookiesEnabled}
+        domStorageEnabled={this.props.domStorageEnabled}
+        messagingEnabled={typeof this.props.onMessage === 'function'}
+        onMessage={this.onMessage}
+        contentInset={this.props.contentInset}
+        automaticallyAdjustContentInsets={this.props.automaticallyAdjustContentInsets}
+        onContentSizeChange={this.props.onContentSizeChange}
+        onLoadingStart={this.onLoadingStart}
+        onLoadingFinish={this.onLoadingFinish}
+        onLoadingError={this.onLoadingError}
+        testID={this.props.testID}
+        mediaPlaybackRequiresUserAction={this.props.mediaPlaybackRequiresUserAction}
+        allowUniversalAccessFromFileURLs={this.props.allowUniversalAccessFromFileURLs}
+        mixedContentMode={this.props.mixedContentMode}
+        saveFormDataDisabled={this.props.saveFormDataDisabled}
+        urlPrefixesForDefaultIntent={this.props.urlPrefixesForDefaultIntent}
+        uploadEnabledAndroid={true}
+        {...nativeConfig.props}
+      />
+    );
+
+    return (
+      <View style={styles.container}>
+        {webView}
+        {otherView}
+      </View>
+    );
+  }
+
+  goForward = () => {
+    UIManager.dispatchViewManagerCommand(
+      this.getWebViewHandle(),
+      UIManager.RCTWebView.Commands.goForward,
+      null,
+    );
+  };
+
+  goBack = () => {
+    UIManager.dispatchViewManagerCommand(
+      this.getWebViewHandle(),
+      UIManager.RCTWebView.Commands.goBack,
+      null,
+    );
+  };
+
+  reload = () => {
+    this.setState({
+      viewState: WebViewState.LOADING,
+    });
+    UIManager.dispatchViewManagerCommand(
+      this.getWebViewHandle(),
+      UIManager.RCTWebView.Commands.reload,
+      null,
+    );
+  };
+
+  stopLoading = () => {
+    UIManager.dispatchViewManagerCommand(
+      this.getWebViewHandle(),
+      UIManager.RCTWebView.Commands.stopLoading,
+      null,
+    );
+  };
+
+  postMessage = (data) => {
+    UIManager.dispatchViewManagerCommand(
+      this.getWebViewHandle(),
+      UIManager.RCTWebView.Commands.postMessage,
+      [String(data)],
+    );
+  };
+
+  /**
+  * Injects a javascript string into the referenced WebView. Deliberately does not
+  * return a response because using eval() to return a response breaks this method
+  * on pages with a Content Security Policy that disallows eval(). If you need that
+  * functionality, look into postMessage/onMessage.
+  */
+  injectJavaScript = (data) => {
+    UIManager.dispatchViewManagerCommand(
+      this.getWebViewHandle(),
+      UIManager.RCTWebView.Commands.injectJavaScript,
+      [data],
+    );
+  };
+
+  /**
+   * We return an event with a bunch of fields including:
+   *  url, title, loading, canGoBack, canGoForward
+   */
+  updateNavigationState = (event) => {
+    if (this.props.onNavigationStateChange) {
+      this.props.onNavigationStateChange(event.nativeEvent);
+    }
+  };
 
   onLoadingStart = (event) => {
     const onLoadStart = this.props.onLoadStart;
@@ -296,149 +485,9 @@ class AndroidWebView extends Component {
   }
 
   getWebViewHandle = () => ReactNative.findNodeHandle(this[RCT_WEBVIEW_REF]);
-
-
-  goForward = () => {
-    UIManager.dispatchViewManagerCommand(
-      this.getWebViewHandle(),
-      UIManager.RCTWebView.Commands.goForward,
-      null,
-    );
-  };
-
-  goBack = () => {
-    UIManager.dispatchViewManagerCommand(
-      this.getWebViewHandle(),
-      UIManager.RCTWebView.Commands.goBack,
-      null,
-    );
-  };
-
-  postMessage = (data) => {
-    UIManager.dispatchViewManagerCommand(
-      this.getWebViewHandle(),
-      UIManager.RCTWebView.Commands.postMessage,
-      [String(data)],
-    );
-  };
-
-  /**
-  * Injects a javascript string into the referenced WebView. Deliberately does not
-  * return a response because using eval() to return a response breaks this method
-  * on pages with a Content Security Policy that disallows eval(). If you need that
-  * functionality, look into postMessage/onMessage.
-  */
-  injectJavaScript = (data) => {
-    UIManager.dispatchViewManagerCommand(
-      this.getWebViewHandle(),
-      UIManager.RCTWebView.Commands.injectJavaScript,
-      [data]
-    );
-  };
-
-  reload = () => {
-    UIManager.dispatchViewManagerCommand(
-      this.getWebViewHandle(),
-      UIManager.RCTWebView.Commands.reload,
-      null,
-    );
-  };
-
-  stopLoading = () => {
-    UIManager.dispatchViewManagerCommand(
-      this.getWebViewHandle(),
-      UIManager.RCTWebView.Commands.stopLoading,
-      null,
-    );
-  };
-
-  /**
-  * We return an event with a bunch of fields including:
-  *  url, title, loading, canGoBack, canGoForward
-  */
-  updateNavigationState = (event) => {
-    if (this.props.onNavigationStateChange) {
-      this.props.onNavigationStateChange(event.nativeEvent);
-    }
-  };
-
-  render() {
-    let otherView = null;
-
-    if (this.state.viewState === WebViewState.LOADING) {
-      otherView = (this.props.renderLoading || defaultRenderLoading)();
-    } else if (this.state.viewState === WebViewState.ERROR) {
-      const errorEvent = this.state.lastErrorEvent;
-      otherView = this.props.renderError && this.props.renderError(
-              errorEvent.domain,
-              errorEvent.code,
-              errorEvent.description);
-    } else if (this.state.viewState !== WebViewState.IDLE) {
-      console.error(`RCTWebView invalid state encountered: ${this.state.loading}`);
-    }
-
-    const webViewStyles = [styles.container, this.props.style];
-    if (this.state.viewState === WebViewState.LOADING ||
-      this.state.viewState === WebViewState.ERROR) {
-      // if we're in either LOADING or ERROR states, don't show the webView
-      webViewStyles.push(styles.hidden);
-    }
-
-    const source = this.props.source || {};
-    if (this.props.html) {
-      source.html = this.props.html;
-    } else if (this.props.url) {
-      source.uri = this.props.url;
-    }
-
-    if (source.method === 'POST' && source.headers) {
-      console.warn('WebView: `source.headers` is not supported when using POST.');
-    } else if (source.method === 'GET' && source.body) {
-      console.warn('WebView: `source.body` is not supported when using GET.');
-    }
-
-    const webView = (
-      <WebViewForAndroid
-        ref={(c) => { this[RCT_WEBVIEW_REF] = c; }}
-        key="androidwebViewKey"
-        style={webViewStyles}
-        source={resolveAssetSource(source)}
-        scalesPageToFit={this.props.scalesPageToFit}
-        injectedJavaScript={this.props.injectedJavaScript}
-        userAgent={this.props.userAgent}
-        javaScriptEnabled={this.props.javaScriptEnabled}
-        domStorageEnabled={this.props.domStorageEnabled}
-        messagingEnabled={typeof this.props.onMessage === 'function'}
-        onMessage={this.onMessage}
-        contentInset={this.props.contentInset}
-        automaticallyAdjustContentInsets={this.props.automaticallyAdjustContentInsets}
-        onContentSizeChange={this.props.onContentSizeChange}
-        onLoadingStart={this.onLoadingStart}
-        onLoadingFinish={this.onLoadingFinish}
-        onLoadingError={this.onLoadingError}
-        testID={this.props.testID}
-        mediaPlaybackRequiresUserAction={this.props.mediaPlaybackRequiresUserAction}
-        allowUniversalAccessFromFileURLs={this.props.allowUniversalAccessFromFileURLs}
-        mixedContentMode={this.props.mixedContentMode}
-        saveFormDataDisabled={this.props.saveFormDataDisabled}
-        uploadEnabledAndroid={true}
-      />
-    );
-
-    return (
-      <View style={styles.container}>
-        {webView}
-        {otherView}
-      </View>
-    );
-  }
 }
 
-const WebViewForAndroid = requireNativeComponent('AndroidWebView', AndroidWebView, {
-  nativeOnly: {
-    messagingEnabled: PropTypes.bool,
-  },
-});
+const WebViewForAndroid = requireNativeComponent('AndroidWebView', AndroidWebView, AndroidWebView.extraNativeComponentConfig);
 
 
 module.exports = AndroidWebView;
