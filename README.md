@@ -28,6 +28,8 @@ undocumented APIs prior? Very spotty APIs anyway, and not built-in to WebView)
 ## Things this library adds:
  - File input for any type of file
  - Support for downloading files using the Android DownloadManager
+ - Permission requests for Android SDK Version >26 (required for new Play Store 
+ builds now, and for updates from November 2018)
 
 Note that this project scope has slightly expanded beyond its original scope
 (originally it only added file upload), and it may not retain compatibility 
@@ -36,7 +38,7 @@ notes.
 
 ## React Native Version Compatibility
 
-Version 1.0.0 of this has been tested on React Native 0.55.0.
+Version 1.0.0 of this has been tested on React Native 0.56.0.
 
 Previous known stable compatibilities include:
  - `0.4.2` of this library is compatible with React 
@@ -71,7 +73,7 @@ library.
 
 ## Requirements
 This has been tested with (and has a peerDependency in package.json on
-`react-native` `^0.55.0`). Please see the compatibility section above for 
+`react-native` `^0.56.0`). Please see the compatibility section above for 
 further information on compatibility with earlier versions. This version of 
 the library _might_ work with earlier versions of React Native. If it does,
 please open a PR amending the peerDependencies in package.json.
@@ -189,3 +191,8 @@ by adding
 `"react-native-webview-file-upload-android": "file:../react-native-webview-file-upload-android"`
 to your `package.json` `dependencies` (obviously, alter the `file:` url to
 point to your local copy).
+
+HOWEVER, if you do so, you MUST install using `yarn` instead of `npm`, as `npm` 5+
+installs local `file` dependencies using symlinks. This would be a great feature
+if react native's metro bundler didn't completely break on symlinks - this issue
+has existed since metro's inception, with no sign of a fix in sight: https://github.com/facebook/metro/issues/1.
