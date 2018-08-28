@@ -18,6 +18,7 @@ import ReactNative, {
   ViewPropTypes,
   requireNativeComponent,
 } from 'react-native';
+import WebViewShared from './WebViewShared';
 import warning from 'warning';
 import keyMirror from 'keymirror';
 import resolveAssetSource from 'react-native/Libraries/Image/resolveAssetSource';
@@ -82,9 +83,7 @@ const WebViewState = keyMirror({
 
 const defaultRenderLoading = () => (
   <View style={styles.loadingView}>
-    <ActivityIndicator
-      style={styles.loadingProgressBar}
-    />
+    <ActivityIndicator style={styles.loadingProgressBar} />
   </View>
 );
 
@@ -92,14 +91,6 @@ const defaultRenderLoading = () => (
  * Renders a native AndroidWebView that allows file upload.
  */
 class AndroidWebView extends Component {
-  static get extraNativeComponentConfig() {
-    return {
-      nativeOnly: {
-        messagingEnabled: PropTypes.bool,
-      },
-    };
-  }
-
   static propTypes = {
     ...ViewPropTypes,
     renderError: PropTypes.func,
@@ -189,6 +180,12 @@ class AndroidWebView extends Component {
     domStorageEnabled: PropTypes.bool,
 
     /**
+     * Sets whether Geolocation is enabled. The default is false.
+     * @platform android
+     */
+    geolocationEnabled: PropTypes.bool,
+
+    /**
      * Sets the JS to be injected when the webpage loads.
      */
     injectedJavaScript: PropTypes.string,
@@ -222,6 +219,15 @@ class AndroidWebView extends Component {
      * @platform android
      */
     allowUniversalAccessFromFileURLs: PropTypes.bool,
+
+    /**
+     * List of origin strings to allow being navigated to. The strings allow
+     * wildcards and get matched against *just* the origin (not the full URL).
+     * If the user taps to navigate to a new page but the new page is not in
+     * this whitelist, the URL will be opened by the Android OS.
+     * The default whitelisted origins are "http://*" and "https://*".
+     */
+    originWhitelist: PropTypes.arrayOf(PropTypes.string),
 
     /**
      * Function that accepts a string that will be passed to the WebView and
@@ -266,7 +272,7 @@ class AndroidWebView extends Component {
        */
       props: PropTypes.object,
       /*
-       * Set the ViewManager to use for communcation with the native side.
+       * Set the ViewManager to use for communication with the native side.
        * @platform ios
        */
       viewManager: PropTypes.object,
@@ -286,6 +292,7 @@ class AndroidWebView extends Component {
     thirdPartyCookiesEnabled: true,
     scalesPageToFit: true,
     saveFormDataDisabled: false,
+    originWhitelist: WebViewShared.defaultOriginWhitelist,
   };
 
   state = {
@@ -307,17 +314,22 @@ class AndroidWebView extends Component {
       otherView = (this.props.renderLoading || defaultRenderLoading)();
     } else if (this.state.viewState === WebViewState.ERROR) {
       const errorEvent = this.state.lastErrorEvent;
-      otherView = this.props.renderError && this.props.renderError(
-        errorEvent.domain,
-        errorEvent.code,
-        errorEvent.description);
+      otherView =
+        this.props.renderError &&
+        this.props.renderError(
+          errorEvent.domain,
+          errorEvent.code,
+          errorEvent.description,
+        );
     } else if (this.state.viewState !== WebViewState.IDLE) {
-      console.error('RCTWebView invalid state encountered: ' + this.state.loading);
+      console.error('RCTWebView invalid state encountered: ' + this.state.loading,);
     }
 
     const webViewStyles = [styles.container, this.props.style];
-    if (this.state.viewState === WebViewState.LOADING ||
-      this.state.viewState === WebViewState.ERROR) {
+    if (
+      this.state.viewState === WebViewState.LOADING ||
+      this.state.viewState === WebViewState.ERROR
+    ) {
       // if we're in either LOADING or ERROR states, don't show the webView
       webViewStyles.push(styles.hidden);
     }
@@ -336,6 +348,10 @@ class AndroidWebView extends Component {
     }
 
     const nativeConfig = this.props.nativeConfig || {};
+
+    const originWhitelist = (this.props.originWhitelist || []).map(
+      WebViewShared.originWhitelistToRegex,
+    );
 
     let NativeWebView = nativeConfig.component || WebViewForAndroid;
 
@@ -360,8 +376,10 @@ class AndroidWebView extends Component {
         onLoadingFinish={this.onLoadingFinish}
         onLoadingError={this.onLoadingError}
         testID={this.props.testID}
+        geolocationEnabled={this.props.geolocationEnabled}
         mediaPlaybackRequiresUserAction={this.props.mediaPlaybackRequiresUserAction}
         allowUniversalAccessFromFileURLs={this.props.allowUniversalAccessFromFileURLs}
+        originWhitelist={originWhitelist}
         mixedContentMode={this.props.mixedContentMode}
         saveFormDataDisabled={this.props.saveFormDataDisabled}
         urlPrefixesForDefaultIntent={this.props.urlPrefixesForDefaultIntent}
@@ -481,7 +499,7 @@ class AndroidWebView extends Component {
   getWebViewHandle = () => ReactNative.findNodeHandle(this[RCT_WEBVIEW_REF]);
 }
 
-const WebViewForAndroid = requireNativeComponent('AndroidWebView', AndroidWebView, AndroidWebView.extraNativeComponentConfig);
+const WebViewForAndroid = requireNativeComponent('AndroidWebView');
 
 
 module.exports = AndroidWebView;
