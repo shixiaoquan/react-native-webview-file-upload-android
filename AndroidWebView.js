@@ -279,11 +279,6 @@ class AndroidWebView extends Component {
      * @platform android
      */
     urlPrefixesForDefaultIntent: PropTypes.arrayOf(PropTypes.string),
-
-    /**
-     * Make upload file available
-     */
-    uploadEnabledAndroid: PropTypes.bool,
   };
 
   static defaultProps = {
@@ -346,7 +341,7 @@ class AndroidWebView extends Component {
 
     const webView = (
       <WebViewForAndroid
-        ref={(c) => { this[RCT_WEBVIEW_REF] = c; }}
+        ref={RCT_WEBVIEW_REF}
         key="androidwebViewKey"
         style={webViewStyles}
         source={resolveAssetSource(source)}
@@ -370,7 +365,6 @@ class AndroidWebView extends Component {
         mixedContentMode={this.props.mixedContentMode}
         saveFormDataDisabled={this.props.saveFormDataDisabled}
         urlPrefixesForDefaultIntent={this.props.urlPrefixesForDefaultIntent}
-        uploadEnabledAndroid={true}
         {...nativeConfig.props}
       />
     );
