@@ -2,7 +2,7 @@
   "name": "react-native-webview-file-upload-android",
   "version": "0.4.2",
   "main": "index.js",
-  "description": "ReactNative's WebView on Android does not support file input. This library adds in an `<AndroidWebView>` that does support file input.",
+  "description": "ReactNative's WebView on Android does not support file input. This library adds in an `<AndroidWebView>` that does support file input, as well as download support, and run-time permission requests for Android API v26",
   "repository": {
     "type": "git",
     "url": "https://github.com/Oblongmana/react-native-webview-file-upload-android"
