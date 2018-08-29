@@ -11,7 +11,7 @@
   "files": [
     "index.js",
     "AndroidWebView.js",
-    "AndroidWebViewShared.js",
+    "WebViewShared.js",
     "android/",
     "LICENSE",
     "README.md"
