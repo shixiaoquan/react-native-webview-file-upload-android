@@ -54,7 +54,7 @@ where `COMMIT_SHA` is the SHA of the commit you wish to use:
 
 ## Limitations
 - This is untested on most Android platforms at time of writing. This was tested
-in an AVD with following config: Nexus 5X API 25 x86, Android 7.1.1.
+in an AVD with following config: Nexus 5X API 26 x86.
 
 - This only works with Android - specifically, it DOES NOT defer to react-native
 built-in WebView for iOS. If supporting both platforms, you will need to include
