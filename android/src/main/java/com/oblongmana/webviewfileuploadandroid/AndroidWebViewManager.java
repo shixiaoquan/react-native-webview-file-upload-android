@@ -39,7 +39,7 @@ public class AndroidWebViewManager extends ReactWebViewManager {
 
             public void openFileChooser(ValueCallback<Uri> uploadMsg, String acceptType) {
                 module.setUploadMessage(uploadMsg);
-                openFileChooserView();
+                module.openFileChooserView();
 
             }
 
@@ -54,13 +54,13 @@ public class AndroidWebViewManager extends ReactWebViewManager {
             // For Android < 3.0
             public void openFileChooser(ValueCallback<Uri> uploadMsg) {
                 module.setUploadMessage(uploadMsg);
-                openFileChooserView();
+                module.openFileChooserView();
             }
 
             // For Android  > 4.1.1
             public void openFileChooser(ValueCallback<Uri> uploadMsg, String acceptType, String capture) {
                 module.setUploadMessage(uploadMsg);
-                openFileChooserView();
+                module.openFileChooserView();
             }
 
             // For Android > 5.0
@@ -68,28 +68,19 @@ public class AndroidWebViewManager extends ReactWebViewManager {
                 Log.d("customwebview", "onShowFileChooser");
 
                 module.setmUploadCallbackAboveL(filePathCallback);
-                openFileChooserView();
+                if (module.grantFileChooserPermissions()) {
+                    module.openFileChooserView();
+                } else {
+                    Toast.makeText(module.getActivity().getApplicationContext(), "Cannot upload files as permission was denied. Please provide permission to access storage, in order to upload files.", Toast.LENGTH_LONG).show();
+                }
                 return true;
             }
-
-            private void openFileChooserView(){
-                try {
-                    Intent openableFileIntent = new Intent(Intent.ACTION_GET_CONTENT);
-                    openableFileIntent.addCategory(Intent.CATEGORY_OPENABLE);
-                    openableFileIntent.setType("*/*");
-
-                    final Intent chooserIntent = Intent.createChooser(openableFileIntent, "Choose File");
-                    module.getActivity().startActivityForResult(chooserIntent, 1);
-                } catch (Exception e) {
-                    Log.d("customwebview", e.toString());
-                }
-            }
         });
+
         view.setDownloadListener(new DownloadListener() {
             public void onDownloadStart(String url, String userAgent,
                     String contentDisposition, String mimetype,
                     long contentLength) {
-
                 String fileName = URLUtil.guessFileName(url,contentDisposition,mimetype);
                 String downloadMessage = "Downloading " + fileName;
 
@@ -101,10 +92,13 @@ public class AndroidWebViewManager extends ReactWebViewManager {
                 request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
                 request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName);
 
-                DownloadManager dm = (DownloadManager) module.getActivity().getBaseContext().getSystemService(Context.DOWNLOAD_SERVICE);
-                dm.enqueue(request);
+                module.setDownloadRequest(request);
 
-                Toast.makeText(module.getActivity().getApplicationContext(), downloadMessage, Toast.LENGTH_LONG).show();
+                if (module.grantFileDownloaderPermissions()) {
+                    module.downloadFile();
+                } else {
+                    Toast.makeText(module.getActivity().getApplicationContext(), "Cannot download files as permission was denied. Please provide permission to write to storage, in order to download files.", Toast.LENGTH_LONG).show();
+                }
             }
         });
 
