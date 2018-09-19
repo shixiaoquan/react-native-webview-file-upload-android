@@ -1,3 +1,3 @@
-import AndroidWebView from './AndroidWebView';
+import WebView from './WebView';
 
-export default AndroidWebView;
+export default WebView;
